@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
+const authRoutes = require("./routes/auth");
 
 const courseRoutes = require('./routes/courseRoutes');
 const blogRoutes = require("./routes/blogs");
@@ -16,6 +17,7 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   .catch((err) => console.error("❌ MongoDB error:", err));
 
 // Use course routes
+app.use("/api/auth", authRoutes);
 app.use('/api/course', courseRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/learn", learningContentRoutes);

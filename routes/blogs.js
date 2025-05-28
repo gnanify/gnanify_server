@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+
 const {
   createBlog,
   getAllBlogs,
@@ -8,31 +9,24 @@ const {
   deleteBlog,
   likeBlog,
   dislikeBlog,
-  addComment
+  addComment,
 } = require("../controllers/blogsController");
 
-// Create a new blog post
-router.post("/create", createBlog);
+const { protect } = require("../middleware/authMiddleware");
 
-// Get all published blogs
+// Public route to get all published blogs
 router.get("/all", getAllBlogs);
 
-// Get a single blog by ID
+// Public route to get single blog
 router.get("/:id", getBlogById);
 
-// Update a blog
-router.put("/:id", updateBlog);
+// Protected routes
+router.post("/create", protect, createBlog);
+router.put("/:id", protect, updateBlog);
+router.delete("/:id", protect, deleteBlog);
 
-// Delete a blog
-router.delete("/:id", deleteBlog);
-
-// Like a blog
-router.post("/:id/like", likeBlog);
-
-// Dislike a blog
-router.post("/:id/dislike", dislikeBlog);
-
-// Add a comment
-router.post("/:id/comment", addComment);
+router.post("/:id/like", protect, likeBlog);
+router.post("/:id/dislike", protect, dislikeBlog);
+router.post("/:id/comment", protect, addComment);
 
 module.exports = router;
