@@ -1,59 +1,53 @@
-// const User = require("../models/User");
-// const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const jwt = require("jsonwebtoken");
 
-// // Register user
-// const registerUser = async (req, res) => {
-//   const { name, email, password } = req.body;
+// Utility to generate JWT
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: "1h", // token expires in 1 hour
+  });
+};
 
-//   const userExists = await User.findOne({ email });
+// ✅ Register User
+exports.registerUser = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
 
-//   if (userExists) {
-//     return res.status(400).json({ error: "User already exists" });
-//   }
+    const userExists = await User.findOne({ email });
+    if (userExists) return res.status(400).json({ error: "User already exists" });
 
-//   const user = new User({
-//     name,
-//     email,
-//     password,
-//   });
+    const user = new User({ name, email, password });
+    await user.save();
 
-//   await user.save();
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Server error during registration" });
+  }
+};
 
-//   res.status(201).json({
-//     message: "User registered successfully",
-//   });
-// };
+// ✅ Login User
+exports.loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-// // Login user and return JWT token
-// const loginUser = async (req, res) => {
-//   const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
 
-//   const user = await User.findOne({ email });
+    const token = generateToken(user._id);
 
-//   if (!user) {
-//     return res.status(401).json({ error: "Invalid email or password" });
-//   }
-
-//   const isMatch = await user.matchPassword(password);
-
-//   if (!isMatch) {
-//     return res.status(401).json({ error: "Invalid email or password" });
-//   }
-
-//   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-//     expiresIn: "1h",
-//   });
-
-//   res.json({
-//     message: "Login successful",
-//     token,
-//     user: {
-//       id: user._id,
-//       name: user.name,
-//       email: user.email,
-//       role: user.role,
-//     },
-//   });
-// };
-
-// module.exports = { registerUser, loginUser };
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Server error during login" });
+  }
+};

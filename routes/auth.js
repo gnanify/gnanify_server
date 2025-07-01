@@ -1,11 +1,12 @@
-// const express = require("express");
-// const router = express.Router();
-// const { registerUser, loginUser } = require("../controllers/authController");
+const express = require("express");
+const router = express.Router();
+const { registerUser, loginUser } = require("../controllers/authController");
+const { protect } = require("../middleware/authMiddleware");
 
-// // Register user route
-// router.post("/register", registerUser);
+router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.get("/profile", protect, (req, res) => {
+  res.json({ message: "Protected route", user: req.user });
+});
 
-// // Login user route
-// router.post("/login", loginUser);
-
-// module.exports = router;
+module.exports = router;
