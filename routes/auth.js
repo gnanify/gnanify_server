@@ -1,12 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { registerUser, loginUser } = require("../controllers/authController");
-const { protect } = require("../middleware/authMiddleware");
-
-router.post("/register", registerUser);
-router.post("/login", loginUser);
-router.get("/profile", protect, (req, res) => {
-  res.json({ message: "Protected route", user: req.user });
-});
+const authController = require("../controllers/authentication/authController"); // ✅ make sure spelling matches
+const {protect}=require("../middleware/authMiddleware")
+router.post("/register", authController.registerUser);
+router.post("/login", authController.loginUser);
+router.post("/send-otp", authController.sendOtp);
+router.post("/reset-password", authController.resetPasswordWithOtp);
+router.get("/:username", protect,authController.getUserByUsername);
 
 module.exports = router;
