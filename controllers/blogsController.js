@@ -3,7 +3,7 @@ const Blog = require("../models/Blog");
 // Create a new blog post
 const createBlog = async (req, res) => {
   try {
-    const blog = new Blog(req.body);
+    const blog = new Blog({ ...req.body, author: req.user._id });
     await blog.save();
     res.status(201).json(blog);
   } catch (err) {
@@ -14,40 +14,57 @@ const createBlog = async (req, res) => {
 // Get all published blogs
 const getAllBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find({ isPublished: true });
+    const blogs = await Blog.find({ isPublished: true }).populate("author", "name email");
     res.json(blogs);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Get a single blog by ID
+// Get a single blog by ID with populated fields
 const getBlogById = async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
-      return res.status(404).json({ error: "Blog not found" });
-    }
+    const blog = await Blog.findById(req.params.id)
+      .populate("author", "name email")
+      .populate("comments.userId", "name email")
+      .populate("likes.userId", "name email")
+      .populate("dislikes.userId", "name email");
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
     res.json(blog);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Update a blog
+// Update a blog (author or admin only)
 const updateBlog = async (req, res) => {
   try {
-    const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized to update this blog" });
+    }
+
+    Object.assign(blog, req.body);
+    await blog.save();
     res.json(blog);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Delete a blog
+// Delete a blog (author or admin only)
 const deleteBlog = async (req, res) => {
   try {
-    await Blog.findByIdAndDelete(req.params.id);
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized to delete this blog" });
+    }
+
+    await blog.remove();
     res.json({ message: "Blog deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -57,17 +74,18 @@ const deleteBlog = async (req, res) => {
 // Like a blog
 const likeBlog = async (req, res) => {
   try {
-    const { userId, userName, userEmail } = req.body;
+    const userId = req.user._id;
     const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
 
     // Remove from dislikes if present
-    blog.dislikes = blog.dislikes.filter(user => user.userId !== userId);
+    blog.dislikes = blog.dislikes.filter((user) => user.userId.toString() !== userId.toString());
 
     // Toggle like
-    if (blog.likes.some(user => user.userId === userId)) {
-      blog.likes = blog.likes.filter(user => user.userId !== userId);
+    if (blog.likes.some((user) => user.userId.toString() === userId.toString())) {
+      blog.likes = blog.likes.filter((user) => user.userId.toString() !== userId.toString());
     } else {
-      blog.likes.push({ userId, userName, userEmail });
+      blog.likes.push({ userId });
     }
 
     await blog.save();
@@ -80,17 +98,18 @@ const likeBlog = async (req, res) => {
 // Dislike a blog
 const dislikeBlog = async (req, res) => {
   try {
-    const { userId, userName, userEmail } = req.body;
+    const userId = req.user._id;
     const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
 
     // Remove from likes if present
-    blog.likes = blog.likes.filter(user => user.userId !== userId);
+    blog.likes = blog.likes.filter((user) => user.userId.toString() !== userId.toString());
 
     // Toggle dislike
-    if (blog.dislikes.some(user => user.userId === userId)) {
-      blog.dislikes = blog.dislikes.filter(user => user.userId !== userId);
+    if (blog.dislikes.some((user) => user.userId.toString() === userId.toString())) {
+      blog.dislikes = blog.dislikes.filter((user) => user.userId.toString() !== userId.toString());
     } else {
-      blog.dislikes.push({ userId, userName, userEmail });
+      blog.dislikes.push({ userId });
     }
 
     await blog.save();
@@ -103,14 +122,18 @@ const dislikeBlog = async (req, res) => {
 // Add a comment to a blog
 const addComment = async (req, res) => {
   try {
-    const { userId, userName, text } = req.body;
-    const blog = await Blog.findById(req.params.id);
-    
-    if (!blog) {
-      return res.status(404).json({ error: "Blog not found" });
-    }
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Comment text required" });
 
-    blog.comments.push({ userId, userName, text });
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) return res.status(404).json({ error: "Blog not found" });
+
+    blog.comments.push({
+      userId: req.user._id,
+      userName: req.user.name,
+      text,
+    });
+
     await blog.save();
     res.json(blog);
   } catch (err) {
@@ -126,5 +149,5 @@ module.exports = {
   deleteBlog,
   likeBlog,
   dislikeBlog,
-  addComment
+  addComment,
 };
