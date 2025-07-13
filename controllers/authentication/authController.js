@@ -7,7 +7,7 @@ const sendEmail = require("../../utils/sendEmail");
 // Generate JWT token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: "1h",
+
   });
 };
 
@@ -184,5 +184,29 @@ exports.getUserByUsername = async (req, res) => {
   } catch (error) {
     console.error("Error fetching user:", error.message);
     res.status(500).json({ error: "Server error" });
+  }
+};
+// Update user (all fields)
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const user = await User.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true
+    }).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      message: "User updated successfully",
+      user
+    });
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).json({ error: "Server error during update" });
   }
 };
